@@ -13,6 +13,8 @@ import logging
 import io
 import os
 from PIL import Image
+from keep_alive import keep_alive
+keep_alive()
 
 load_dotenv() #important!
 
@@ -360,5 +362,5 @@ if __name__ == '__main__':
                             webhook_url=os.getenv("WEBHOOK_URL") + TELE_TOKEN)
         logger.info("Application running via webhook: ", TELE_TOKEN)
     else:
-        application.run_polling(2)
+        application.run_polling()
         logger.info("Application running via polling")
