@@ -13,8 +13,6 @@ import logging
 import io
 import os
 from PIL import Image
-from keep_alive import keep_alive
-keep_alive()
 
 load_dotenv() #important!
 
