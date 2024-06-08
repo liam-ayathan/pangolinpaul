@@ -27,34 +27,6 @@ PORT = int(os.environ.get('PORT', 5000))
 ROUTE, GET_API_ID, GET_API_HASH_TRIGGER_HP, COMPLETE_PROFILE, ADD_CODE = range(5) # defining different states
 
 async def start(update, context: ContextTypes.DEFAULT_TYPE):
-    
-    # code below deletes users message to the bot
-    message = update.message
-    if message != None:
-        chat_id = message.chat_id
-        message_id = message.message_id
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-
-    try:
-        if context.user_data['unknown_message'] != None:
-            unknown_message = context.user_data['unknown_message']
-            await unknown_message.delete()
-    except Exception as e:
-        print("unknown message is not set")
-
-    try:
-        if context.user_data['original_message'] != None:
-            original_message = context.user_data['original_message']
-            await original_message.delete()
-    except Exception as e:
-        print("original message is not set")
-
-    try:
-        if context.user_data['animal_message'] != None:
-            animal_message = context.user_data['animal_message']
-            await animal_message.delete()
-    except Exception as e:
-        print("animal message is not set")
 
     keyboard = [
         [InlineKeyboardButton("Otter 🦦", callback_data="view_otter"),],
@@ -67,13 +39,49 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
     message = ("Hey there! 🎉\n\n"
                "Please select one of the options below so that we can alert the right person to help you!\n\n")
     
-    original_message = await context.bot.send_message(
+    start_message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
             reply_markup=reply_markup
         )
+
+    try:
+        if context.user_data['unknown_message'] != None:
+            unknown_message = context.user_data['unknown_message']
+            await unknown_message.delete()
+    except Exception as e:
+        print("unknown message is not set")
+
+    try:
+        if context.user_data['start_message'] != None:
+            original_message = context.user_data['start_message']
+            await original_message.delete()
+    except Exception as e:
+        print("original start message is not set")
+
+    try:
+        if context.user_data['animal_message'] != None:
+            animal_message = context.user_data['animal_message']
+            await animal_message.delete()
+    except Exception as e:
+        print("animal message is not set")
     
-    context.user_data['original_message'] = original_message
+    context.user_data['start_message'] = start_message
+
+    try:
+        if context.user_data['start_message'] != None:
+            start_message = context.user_data['start_message']
+            print("start message is set")
+    except Exception as e:
+        print("start message is not set")
+
+    # code below deletes users message to the bot
+    message = update.message
+    if message != None:
+        chat_id = message.chat_id
+        message_id = message.message_id
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+
     # target_user_id = GROUP_ID  # Replace with the actual target user ID (important thoughts)
     # print(update.effective_chat.id)
     # await context.bot.send_message(
@@ -83,9 +91,6 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
     return ROUTE
 
 async def view_otter(update, context: ContextTypes.DEFAULT_TYPE):
-
-    original_message = context.user_data['original_message']  # initialized during the start function
-    await original_message.delete()
 
     # desired_width = 300  
     # desired_height = 200  
@@ -116,6 +121,13 @@ async def view_otter(update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['animal_message'] = animal_message
 
+    # deleting the start message
+    try:
+        start_message = context.user_data['start_message']  # initialized during the start function
+        await start_message.delete()
+    except Exception as e:
+        print("the exception for deleting start message is ",e)
+
     # Reset bio for the next use
     # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
     bio.seek(0)
@@ -136,9 +148,6 @@ async def view_otter(update, context: ContextTypes.DEFAULT_TYPE):
     return ROUTE
 
 async def view_boar(update, context: ContextTypes.DEFAULT_TYPE):
-
-    original_message = context.user_data['original_message']  # initialized during the start function
-    await original_message.delete()
 
     # desired_width = 300  
     # desired_height = 200  
@@ -169,6 +178,13 @@ async def view_boar(update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['animal_message'] = animal_message
 
+    # deleting the start message
+    try:
+        start_message = context.user_data['start_message']  # initialized during the start function
+        await start_message.delete()
+    except Exception as e:
+        print("the exception for deleting start message is ",e)
+
     # Reset bio for the next use
     # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
     bio.seek(0)
@@ -189,9 +205,6 @@ async def view_boar(update, context: ContextTypes.DEFAULT_TYPE):
     return ROUTE
 
 async def view_snake(update, context: ContextTypes.DEFAULT_TYPE):
-
-    original_message = context.user_data['original_message']  # initialized during the start function
-    await original_message.delete()
 
     # desired_width = 300  
     # desired_height = 200  
@@ -222,6 +235,13 @@ async def view_snake(update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['animal_message'] = animal_message
 
+    # deleting the start message
+    try:
+        start_message = context.user_data['start_message']  # initialized during the start function
+        await start_message.delete()
+    except Exception as e:
+        print("the exception for deleting start message is ",e)
+
     # Reset bio for the next use
     # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
     bio.seek(0)
@@ -242,9 +262,6 @@ async def view_snake(update, context: ContextTypes.DEFAULT_TYPE):
     return ROUTE
 
 async def view_monkey(update, context: ContextTypes.DEFAULT_TYPE):
-
-    original_message = context.user_data['original_message']  # initialized during the start function
-    await original_message.delete()
 
     # desired_width = 300  
     # desired_height = 200  
@@ -275,6 +292,13 @@ async def view_monkey(update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['animal_message'] = animal_message
 
+    # deleting the start message
+    try:
+        start_message = context.user_data['start_message']  # initialized during the start function
+        await start_message.delete()
+    except Exception as e:
+        print("the exception for deleting start message is ",e)
+
     # Reset bio for the next use
     # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
     bio.seek(0)
@@ -296,13 +320,6 @@ async def view_monkey(update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
-    # code below deletes users message to the bot
-    message = update.message
-    if message != None:
-        chat_id = message.chat_id
-        message_id = message.message_id
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    
     try:
         if context.user_data['unknown_message'] != None:
             unknown_message = context.user_data['unknown_message']
@@ -311,11 +328,11 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("unknown message is not set")
 
     try:
-        if context.user_data['original_message'] != None:
-            original_message = context.user_data['original_message']
-            await original_message.delete()
+        if context.user_data['start_message'] != None:
+            start_message = context.user_data['start_message']
+            await start_message.delete()
     except Exception as e:
-        print("original message is not set")
+        print("original start message is not set")
 
     try:
         if context.user_data['animal_message'] != None:
@@ -330,6 +347,13 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     context.user_data['unknown_message'] = unknown_message
+
+    # code below deletes users message to the bot
+    message = update.message
+    if message != None:
+        chat_id = message.chat_id
+        message_id = message.message_id
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
     return ConversationHandler.END
 

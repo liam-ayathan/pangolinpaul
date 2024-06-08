@@ -1,2 +1,8 @@
 old_bot.py
 test.py
+cron_pangolin_paul.py
+keep_alive.py
+requirements.txt
+env2/
+cron.txt
+pangolinPaulAWS.pem
