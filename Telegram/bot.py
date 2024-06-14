@@ -24,40 +24,73 @@ TELE_TOKEN = os.getenv("TELE_TOKEN")
 GROUP_ID = os.getenv("GROUP_ID")
 
 PORT = int(os.environ.get('PORT', 5000))
-ROUTE, GET_API_ID, GET_API_HASH_TRIGGER_HP, COMPLETE_PROFILE, ADD_CODE = range(5) # defining different states
+ROUTE, REPORT, REPORT_PHOTO, REPORT_FINAL = range(4) # defining different states
 
 async def start(update, context: ContextTypes.DEFAULT_TYPE):
+    
+    context.user_data['injured'] = "" # adding this to reset injured status
+    
+    context.user_data['photo_path'] = None # adding this here in the event the user sends out multiple request for photo taking, meaning that we have to keep resetting the photo path when he returns to start
 
     keyboard = [
-        [InlineKeyboardButton("Otter 🦦", callback_data="view_otter"),],
-        [InlineKeyboardButton("Wild Boar 🐗", callback_data="view_boar"),],
-        [InlineKeyboardButton("Snake 🐍", callback_data="view_snake"),],
-        [InlineKeyboardButton("Monkey 🐒", callback_data="view_monkey"),],
+        [InlineKeyboardButton("Monitor Lizard 🦎", callback_data="view_animal_monitor"),InlineKeyboardButton("Otter 🦦", callback_data="view_animal_otter")],
+        [InlineKeyboardButton("Wild Boar 🐗", callback_data="view_animal_boar"),InlineKeyboardButton("Snake 🐍", callback_data="view_animal_snake")],
+        [InlineKeyboardButton("Bird 🐤", callback_data="view_bird"),InlineKeyboardButton("Others 🦘", callback_data="make_report_others")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    message = ("Hey there! 🎉\n\n"
-               "Please select one of the options below so that we can alert the right person to help you!\n\n")
+    message = ("🎉 Hey there! Pangolin Paul here 👋\n\n"
+               "I'm happy to help you if you need any Wildlife Assistance! I hope that you will be able to learn interesting facts about our native flora and fauna from me as well 🍀\n\n"
+               "Please select one of the relevant options below\n\n"
+               "🚨 _For extremely urgent help please call __NParks’ Animal Response Centre (1800-476-1600)__ or __ACRES (9783-7782)___ 🚨")
     
-    start_message = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=message,
-            reply_markup=reply_markup
-        )
+    if update.callback_query:
+        try: # for some reason if there is a callback, need to investigate this further - I shouldn't need this try block - Yes I do from view animal
+            query = update.callback_query
+            await query.answer()
+            await query.edit_message_text(
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+          print(e)
+          if context.user_data['original_message'] != None:
+              original_message = context.user_data['original_message']
+          start_message = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+          context.user_data['original_message'] = start_message
+          try:
+              await original_message.delete()
+          except Exception as e:
+              print(e)
+    else: # if we are editing the previous message in the if statement, we won't delete the start message, otherwise we will edit it as seen here
 
-    try:
-        if context.user_data['unknown_message'] != None:
-            unknown_message = context.user_data['unknown_message']
-            await unknown_message.delete()
-    except Exception as e:
-        print("unknown message is not set")
+        try:
+            if context.user_data['original_message'] != None:
+                original_message = context.user_data['original_message']
+                await original_message.delete()
+        except Exception as e:
+            print("original start message is not set")
 
-    try:
-        if context.user_data['start_message'] != None:
-            original_message = context.user_data['start_message']
-            await original_message.delete()
-    except Exception as e:
-        print("original start message is not set")
+        start_message = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+        context.user_data['original_message'] = start_message
+
+    # try:
+    #     if context.user_data['unknown_message'] != None:
+    #         unknown_message = context.user_data['unknown_message']
+    #         await unknown_message.delete()
+    # except Exception as e:
+    #     print("unknown message is not set")
 
     try:
         if context.user_data['animal_message'] != None:
@@ -65,12 +98,10 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
             await animal_message.delete()
     except Exception as e:
         print("animal message is not set")
-    
-    context.user_data['start_message'] = start_message
 
     try:
-        if context.user_data['start_message'] != None:
-            start_message = context.user_data['start_message']
+        if context.user_data['original_message'] != None:
+            start_message = context.user_data['original_message']
             print("start message is set")
     except Exception as e:
         print("start message is not set")
@@ -82,254 +113,480 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
         message_id = message.message_id
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
-    # target_user_id = GROUP_ID  # Replace with the actual target user ID (important thoughts)
-    # print(update.effective_chat.id)
-    # await context.bot.send_message(
-    #     chat_id=target_user_id,
-    #     text="Hello again my friend"
-    # )
     return ROUTE
 
-async def view_otter(update, context: ContextTypes.DEFAULT_TYPE):
+async def view_animal(update, context: ContextTypes.DEFAULT_TYPE):
+    original_message = context.user_data['original_message']
 
-    # desired_width = 300  
-    # desired_height = 200  
+    if update.callback_query:
+            query = update.callback_query
+            await query.answer()
 
-    keyboard = [
-        [InlineKeyboardButton("< Back To Menu", callback_data="start"), ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+            animal = query.data.split("_")[-1] # basically it will be called as make_report_{animalname}
+            context.user_data['animal'] = animal
 
-    with open(f'./images/otter.jpg', 'rb') as f:
+    with open(f'./images/{animal}.jpg', 'rb') as f:
         image = Image.open(f)
         # resized_image = image.resize((desired_width, desired_height))
-
         bio = io.BytesIO()
         # resized_image.save(bio, format='JPEG')
         image.save(bio,format='JPEG')
         bio.seek(0)
 
-    # User Chat
-    message = ("Otters may be playful, but they need their space. Do not approach too closely or attempt to touch them! \n\n"
-               "If you spot an otter, remain calm and avoid sudden movements or loud noises. Otters are curious but can be easily scared away. \n\n"
-               "We have reached out to the relevant experts, sit tight, help is on the way 👍\n\n")
-    
-    animal_message = await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                                   photo=InputFile(bio, filename='otter.jpg'),
-                                                   caption=message,
-                                                   reply_markup=reply_markup)
+    message = (F"This is the animal {animal}")
 
-    context.user_data['animal_message'] = animal_message
+    # Setting the animal Messages
 
-    # deleting the start message
-    try:
-        start_message = context.user_data['start_message']  # initialized during the start function
-        await start_message.delete()
-    except Exception as e:
-        print("the exception for deleting start message is ",e)
+    if animal == "monitor":
+        message = (
+            "Below are some useful FAQs that could help!\n\n"
+            "*What to do when encountering monitor lizards in urban areas?*\n"
+            "_Keep calm. Monitor lizards are generally shy and will not attack unless provoked. You can proceed to observe it from a safe distance._\n\n"
+            "*What to do if I am bitten by a monitor lizard?*\n"
+            "_In the very unlikely case that you get bitten, seek medical attention immediately. While their venom is not lethal to humans, their bite can cause infections._\n\n"
+            "*How do I prevent monitor lizards from entering my house?*\n"
+            "_Practise proper food waste disposal. Seal up holes and gaps in your property which monitor lizards might enter from or hole up in (e.g. under pool decks or other cool crevices). Prune trees and overhanging branches to restrict access into your property. Some monitor lizards are excellent climbers._\n\n"
+            "If you need more assistance please pick the relevant options below"
+        )
 
-    # Reset bio for the next use
-    # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
-    bio.seek(0)
+    if animal == "otter":
+        message = (
+            "Below are some useful FAQs that could help!\n\n"
+            "*What to do when encountering otters in urban areas?*\n"
+            "_If you encounter otters, do not touch, chase or corner them. Instead, observe them from a distance as going too close may frighten them. Do not talk loudly and do not use flash photography. Noise and light may scare and provoke the otters._\n\n"
+            "*How do I prevent otters from entering my house?*\n"
+            "_Block off entry points so that otters cannot enter. Wire mesh, panels, modifying the gates/fences to make the gaps smaller are some methods that have been implemented and have been proven to be effective. Fencing off ponds and using netting to cover ponds are also possible measures._\n\n"
+            "If you need more assistance please pick the relevant options below"
+        )
 
-    # Helper chat
-    try:
-        user_handle = update.effective_user.username #assuming someone has a handle some people don't
-        message = ("🚨 Someone has just spotted an Otter! 🚨\n\n"
-                  f"@liamayathan please reach out to @{user_handle} to provide assistance 👍\n\n")
+    if animal == "boar":
+        message = (
+            "Below are some useful FAQs that could help!\n\n"
+            "*What to do when encountering wild boars in urban areas?*\n"
+            "_Proper food waste management must be practised by disposing trash properly to discourage wild boars from scavenging. Additionally, ensure that fences are made from study material like galvanised steel and are properly maintained with a solid concrete base that is dug into the ground to prevent them from entering your property._\n\n"
+            "*What to do when encountering wild boars in wild areas?*\n"
+            "_If you are walking by with food, store it properly inside your bag instead of carrying it openly in plastic bags as they have learned to associate plastic bags with food. Avoid any actions that may startle or provoke them such as sudden movements, flash photography and loud noises. If you see a wild boar while walking your dog, please keep your dog on a tight leash and avoid going anywhere near the wild boar._\n\n"
+            "If you need more assistance please pick the relevant options below"
+        )
+
+    if animal == "snake":
+        message = (
+            "Below are some useful FAQs that could help!\n\n"
+            "*What to do when encountering snakes in urban areas?*\n"
+            "_Snakes are usually seen in urban areas due to the availability of food and shelter. Keep all family members and pets away from where the snake is. If a snake is found inside a room, keep all doors and windows that lead outside open for the snake to exit. Find out why the snake came to your area - a potential cause could be improper waste disposal which attracts pests that snakes prey on._\n\n"
+            "*What to do when encountering snakes in wild areas?*\n"
+            "_Observe from a safe distance, as snakes will not attack unless disturbed or provoked. Stay calm and back away slowly, giving the snake space to retreat. Do not approach or attempt to handle the snake._\n\n"
+            "If you need more assistance please pick the relevant options below"
+        )
+
+    if animal == "mynah":
+        message = (
+            "Below are some useful FAQs that could help!\n\n"
+            "*What to do when encountering Mynahs in urban areas?*\n"
+            "_The presence of Mynahs in your estate might be attributed to factors such as illegal feeding and excess food scraps lying around. Keep your estate clean by disposing your food waste properly!_\n\n"
+            "*Where do Mynahs come from?*\n"
+            "_Did you know that the Mynahs commonly found in Singapore are Javan Mynahs which were once endemic to Java and Bali? They were bought over to Singapore as part of the bird trade and outcompeted their other Mynah relatives, the Common and Hill Mynah, to be the most dominant Mynah species in Singapore._\n\n"
+            "If you need more assistance please pick the relevant options below"
+        )
+
+    if animal == "koel":
+        message = (
+            "Below are some useful FAQs that could help!\n\n"
+            "*Why are Koels so noisy?*\n"
+            "_The 'uwu' sounds you hear are the male Koels calling for mates, during the breeding season which spans from October to March!_\n\n"
+            "*What can I do about the noise?*\n"
+            "_The Asian Koels are a protected species under the Wildlife Act. To minimise the inconvenience of their calls to residents, NParks and Town Councils prune trees, remove food sources and manage Crows nests to prevent Koels from roosting near your residential estates. _\n\n"
+            "*What role do Koels play in our native ecosystem?*\n"
+            "_Did you know that in Singapore, Asian Koels are brood parasites of the House Crow? This means that Female Asian Koels lay their eggs in unattended Crow nests. The Koel chick hatches first and may force the Crow's eggs or chicks out of the nest. This brood parasitism relationship thus help keep the Crow's population in check by reducing their reproduction success!_\n\n"
+            "If you need more assistance please pick the relevant options below"
+        )
+
+    if animal == "mynah" or animal == "koel":
+        callback = "view_bird"
+    else:
+        callback = "start"
         
-        help_message = await context.bot.send_photo(chat_id=GROUP_ID,
-                                                      photo=InputFile(bio, filename='otter.jpg'),
-                                                      caption=message)
-        
-    except Exception as e:
-        print("The exception is", e)
-    
-    return ROUTE
-
-async def view_boar(update, context: ContextTypes.DEFAULT_TYPE):
-
-    # desired_width = 300  
-    # desired_height = 200  
-
     keyboard = [
-        [InlineKeyboardButton("< Back To Menu", callback_data="start"), ],
+        [InlineKeyboardButton("Injured Animal 🏥", callback_data=f"make_report_injured_{animal}"),],
+        [InlineKeyboardButton("Contact Expert 👨‍🔬", callback_data=f"make_report_{animal}"),],
+        [InlineKeyboardButton("Back", callback_data=callback),],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    with open(f'./images/boar.jpg', 'rb') as f:
-        image = Image.open(f)
-        # resized_image = image.resize((desired_width, desired_height))
-
-        bio = io.BytesIO()
-        # resized_image.save(bio, format='JPEG')
-        image.save(bio,format='JPEG')
-        bio.seek(0)
-
-    # User Chat
-    message = ("If you spot a wild boar, remain calm and avoid sudden movements. Slowly back away from the animal! \n\n"
-               "If you see adult wild boars with young piglets, exercise extra caution. These adults may become defensive if they perceive a threat to their offspring. \n\n"
-               "We have reached out to the relevant experts, sit tight, help is on the way 👍\n\n")
-    
     animal_message = await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                                   photo=InputFile(bio, filename='boar.jpg'),
+                                                   photo=InputFile(bio, filename=f'{animal}.jpg'),
                                                    caption=message,
+                                                   parse_mode="Markdown",
                                                    reply_markup=reply_markup)
+    
+    context.user_data['original_message'] = animal_message
 
-    context.user_data['animal_message'] = animal_message
+    await original_message.delete()
 
-    # deleting the start message
-    try:
-        start_message = context.user_data['start_message']  # initialized during the start function
-        await start_message.delete()
-    except Exception as e:
-        print("the exception for deleting start message is ",e)
+    return ROUTE
 
-    # Reset bio for the next use
-    # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
-    bio.seek(0)
-
-    # Helper chat
-    try:
-        user_handle = update.effective_user.username #assuming someone has a handle some people don't
-        message = ("🚨 Someone has just spotted a Wild Boar! 🚨\n\n"
-                  f"@valelerine please reach out to @{user_handle} to provide assistance 👍\n\n")
+async def view_bird(update, context: ContextTypes.DEFAULT_TYPE):
+    original_message = context.user_data['original_message']
+    pass
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        keyboard = [
+            [InlineKeyboardButton("Mynah", callback_data="view_animal_mynah"),InlineKeyboardButton("Koel", callback_data="view_animal_koel")],
+            [InlineKeyboardButton("Other Bird 🐔",callback_data="make_report_bird"),InlineKeyboardButton("Back",callback_data="start")],
+        ]
         
-        help_message = await context.bot.send_photo(chat_id=GROUP_ID,
-                                                      photo=InputFile(bio, filename='boar.jpg'),
-                                                      caption=message)
-        
-    except Exception as e:
-        print("The exception is", e)
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        message = ("Hey!\n\n"
+                   "Choose the relevant bird 🐤 from the list below!")
+        try:
+            await query.edit_message_text(
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            print("Callback triggered from view animal, which is a caption via send photo and cannot be edited",e)
+            start_message = await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=message,
+                    parse_mode="Markdown",
+                    reply_markup=reply_markup
+                )
+            context.user_data['original_message'] = start_message
+            await original_message.delete()
     
     return ROUTE
 
-async def view_snake(update, context: ContextTypes.DEFAULT_TYPE):
+async def make_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    original_message = context.user_data['original_message']
 
-    # desired_width = 300  
-    # desired_height = 200  
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
 
+        animal = query.data.split("_")[-1] # basically it will be called as make_report_{animalname}
+        context.user_data['animal'] = animal 
+
+        injured = query.data.split("_")[-2] # basically if this call came from an injured button it will be make_report_injured_{animalname}
+        if injured == "injured":
+            injured_status = "_Injured: Yes_\n\n"
+        else:
+            injured_status = ""
+        context.user_data['injured'] = injured_status
+        if animal == "bird":
+            callback = "view_bird"
+        elif animal != "others":
+            callback = f"view_animal_{animal}"
+        else:
+            callback = "start"
+
+        keyboard = [
+            [InlineKeyboardButton("Back", callback_data=callback),]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        message = ("To better help you please provide us with more details! ✍️\n\n"
+                  "Please write out a description similar to the one below 👍\n\n"
+                  "'_I found a grounded bat 🦇 at the void deck of Blk 21 Telok Blangah Crescent. It has been on the ground for about an hour and might be injured, what should I do next?_'\n\n"
+                  "If you don't want to make a report, please press back")
+        try:
+            await query.edit_message_text(
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            print("Report was made through view animal, which is a caption via send photo and cannot be edited ",e)
+            start_message = await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=message,
+                    parse_mode="Markdown",
+                    reply_markup=reply_markup
+                )
+            context.user_data['original_message'] = start_message
+            await original_message.delete()
+    return REPORT
+
+async def process_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        description = update.message.text
+        sent_message = update.message
+        context.user_data['description'] = description
+    except Exception as e:
+        print("user never sent a message and is returning from sending a photo or failing to ", e)
+        description = context.user_data['description']
+        sent_message = None
+
+    original_message = context.user_data['original_message'] # I am resetting this message in the below code so I store this original message first, then I delete it later down the line
+    animal = context.user_data['animal'] # setting the animal
+    injured_status = context.user_data['injured']
+
+    if sent_message != None and sent_message.text == "/start":
+        keyboard = [
+            [InlineKeyboardButton("Back to Menu", callback_data="start"),]
+        ]
+        message = ("If you would like to go back to the main menu please press the button below")
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        start_message = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+                reply_markup=reply_markup
+            )
+        context.user_data['original_message'] = start_message
+    else:
+        
+        if context.user_data['photo_path'] != None: #photo is already set, don't need them to edit again
+            proceed_callback = "process_image"
+        else:
+            proceed_callback = "receive_photo"
+
+        if animal == "bird":
+            callback = "view_bird"
+        elif animal != "others":
+            callback = f"view_animal_{animal}"
+        else:
+            callback = "start"
+
+        keyboard = [
+            # [InlineKeyboardButton("Take Photo ", callback_data=f"blank"),],
+            [InlineKeyboardButton("Proceed 👍", callback_data=f"{proceed_callback}")],
+            # [InlineKeyboardButton("Edit Message ✏️", callback_data=f"make_report_{animal}")],
+            [InlineKeyboardButton("Back", callback_data=callback)]
+        ]
+        # message = "This is the description you send below: \n\n *Type: %s*\n\n *%s*\n\n If its accurate please proceed finish the report or add a supporting photo, if not please press back \n\n" % (animal,description)
+
+        message = ("This is the description you sent below: \n\n"
+                   f"_Animal: {animal}_\n\n{injured_status}" # will be this "_Injured: Yes_\n\n" if active
+                   f"_Description: {description}_\n\n" 
+                   "If you would like to *edit* the description just *retype* ✏️ and send me the description again! \n\n"
+                   "If its accurate please press proceed to finish the report, if not please press back \n\n")
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        start_message = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+        context.user_data['original_message'] = start_message
+    
+    await original_message.delete() # moved this down so that we are not stuck with completely no message
+
+    # Deleting the sent message to the chat
+    if sent_message != None: # if we are not returning from receive photo
+        chat_id = sent_message.chat_id
+        message_id = sent_message.message_id
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+    return REPORT
+
+async def receive_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("< Back To Menu", callback_data="start"), ],
+        [InlineKeyboardButton("Continue without Photo 🏃", callback_data="finalise_report"),],
+        [InlineKeyboardButton("Back", callback_data="process_description"),]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+
+        message = ("To better help you please snap a picture or provide us with a photo of the situation! 📷\n\n"
+                  "If you don't want to proceed without a picture press _Continue without Photo_\n\n"
+                  "Otherwise, please press back to edit the description or return to a previous screen")
+        await query.edit_message_text(
+            text=message,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+    return REPORT_PHOTO
+
+async def process_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    original_message = context.user_data['original_message']
+
+    try:
+        # Get the highest resolution photo
+        sent_message = update.message
+        photo = update.message.photo[-1]
+        photo_path = photo.file_id
+        context.user_data['photo_path'] = photo_path
+        # file = await context.bot.get_file(file_id)
+    except Exception as e:
+        print("We are being directed here immediately because a photo has already been set",e)
+        photo_path = context.user_data['photo_path']
+        sent_message = None
+    
+    # Define the caption text
+    caption = ("This is the image you sent!\n\n" 
+                "If you would like to change the photo 📷, just snap another one and send it to us\n\n"
+                "If you would like to finish the report, just press *Finalise Report* below\n\n"
+                "If you would like to go back to review changes or return to a previous screen, press back\n\n"
+                )
+
+    # Create the inline keyboard
+    keyboard = [
+        [InlineKeyboardButton("Finalise Report 👍", callback_data="finalise_report"),],
+        [InlineKeyboardButton("Back", callback_data="process_description"),]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    with open(f'./images/snake.jpg', 'rb') as f:
-        image = Image.open(f)
-        # resized_image = image.resize((desired_width, desired_height))
+    # Send the photo back with the caption and the inline keyboard
+    image_message = await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=photo_path,
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=reply_markup
+    )
 
-        bio = io.BytesIO()
-        # resized_image.save(bio, format='JPEG')
-        image.save(bio,format='JPEG')
-        bio.seek(0)
+    context.user_data['original_message'] = image_message
+    await original_message.delete()
 
-    # User Chat
-    message = ("Give the snake space to retreat. Slowly move away from it without making sudden movements! \n\n"
-               "Keep your pets on a tight leash to prevent them from chasing after the snake and potentially frightening it. \n\n"
-               "We have reached out to the relevant experts, sit tight, help is on the way 👍\n\n")
-    
-    animal_message = await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                                   photo=InputFile(bio, filename='snake.jpg'),
-                                                   caption=message,
-                                                   reply_markup=reply_markup)
+    # Deleting the sent image message to the chat (photo)
+    if sent_message != None:
+        chat_id = update.message.chat_id
+        message_id = update.message.message_id
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
-    context.user_data['animal_message'] = animal_message
+    return REPORT_PHOTO
 
-    # deleting the start message
-    try:
-        start_message = context.user_data['start_message']  # initialized during the start function
-        await start_message.delete()
-    except Exception as e:
-        print("the exception for deleting start message is ",e)
+async def finalise_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo_path = context.user_data['photo_path'] #could be None
+    description = context.user_data['description']
+    animal = context.user_data['animal']
+    injured_status = context.user_data['injured']
 
-    # Reset bio for the next use
-    # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
-    bio.seek(0)
+    original_message = context.user_data['original_message']
 
-    # Helper chat
-    try:
-        user_handle = update.effective_user.username #assuming someone has a handle some people don't
-        message = ("🚨 Someone has just spotted a Snake! 🚨\n\n"
-                  f"@xyingxtingx please reach out to @{user_handle} to provide assistance 👍\n\n")
-        
-        help_message = await context.bot.send_photo(chat_id=GROUP_ID,
-                                                      photo=InputFile(bio, filename='snake.jpg'),
-                                                      caption=message)
-        
-    except Exception as e:
-        print("The exception is", e)
-    
-    return ROUTE
-
-async def view_monkey(update, context: ContextTypes.DEFAULT_TYPE):
-
-    # desired_width = 300  
-    # desired_height = 200  
+    if photo_path != None: # photo is already set, don't need them to edit again at receive_photo - they can double check the phot
+        back_callback = "process_image"
+    else:
+        back_callback = "receive_photo"
 
     keyboard = [
-        [InlineKeyboardButton("< Back To Menu", callback_data="start"), ],
+        [InlineKeyboardButton("Send Report ✅", callback_data=f"send_report")],
+        [InlineKeyboardButton("Back", callback_data=f"{back_callback}")]
     ]
+    # message = "This is the description you send below: \n\n *Type: %s*\n\n *%s*\n\n If its accurate please proceed finish the report or add a supporting photo, if not please press back \n\n" % (animal,description)
+    user_handle = update.effective_user.username
+    message = (f"_Reporter: @{user_handle}_\n\n"
+                f"_Animal: {animal}_\n\n{injured_status}" # will be this "_Injured: Yes_\n\n" if active
+                f"_Description: {description}_\n\n" 
+                "Above is the sample report that we will be sending our community experts\n\n"
+                "Don't worry if the reporter is listed as *None*, we will still be able to get back to you!\n\n"
+                "If the report is good to go please press proceed to send it out\n\n"
+                "If you like to edit the report description and picture or return to a previous screen, please press back\n\n")
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
-
-    with open(f'./images/monkey.jpeg', 'rb') as f:
-        image = Image.open(f)
-        # resized_image = image.resize((desired_width, desired_height))
-
-        bio = io.BytesIO()
-        # resized_image.save(bio, format='JPEG')
-        image.save(bio,format='JPEG')
-        bio.seek(0)
-
-    # User Chat
-    message = ("If you need to pass by a lone macaque or a troop of macaques, walk by calmly without staring or maintaining eye contact! \n\n"
-               "Refrain from feeding macaques. When they get used to being fed, they reduce their natural inclination to forage in the forest. \n\n"
-               "We have reached out to the relevant experts, sit tight, help is on the way 👍\n\n")
     
-    animal_message = await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                                   photo=InputFile(bio, filename='monkey.jpeg'),
-                                                   caption=message,
-                                                   reply_markup=reply_markup)
+    if photo_path != None:
+        image_message = await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=photo_path,
+            caption=message,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        context.user_data['original_message'] = image_message
+    else:
+        start_message = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        context.user_data['original_message'] = start_message
 
-    context.user_data['animal_message'] = animal_message
+    await original_message.delete()
 
-    # deleting the start message
-    try:
-        start_message = context.user_data['start_message']  # initialized during the start function
-        await start_message.delete()
-    except Exception as e:
-        print("the exception for deleting start message is ",e)
+    return REPORT_FINAL
 
-    # Reset bio for the next use
-    # Image Handling: The image is loaded and saved into an in-memory bio buffer, which is then used to send the image. The bio.seek(0) resets the buffer to the beginning, allowing it to be reused for the helper chat.
-    bio.seek(0)
-
-    # Helper chat
-    try:
-        user_handle = update.effective_user.username #assuming someone has a handle some people don't
-        message = ("🚨 Someone has just spotted a Macaque! 🚨\n\n"
-                  f"@Peanutezxc please reach out to @{user_handle} to provide assistance 👍\n\n")
-        
-        help_message = await context.bot.send_photo(chat_id=GROUP_ID,
-                                                      photo=InputFile(bio, filename='monkey.jpeg'),
-                                                      caption=message)
-        
-    except Exception as e:
-        print("The exception is", e)
+async def send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
-    return ROUTE
+    # Message sent to the Experts
+
+    photo_path = context.user_data['photo_path'] #could be None
+    description = context.user_data['description']
+    animal = context.user_data['animal']
+    injured_status = context.user_data['injured']
+
+    user_id = update.effective_user.id
+    user_handle = update.effective_user.username
+
+    keyboard = [
+        [InlineKeyboardButton("Respond Now!", url=f"tg://user?id={user_id}")]
+    ]
+
+    user_handle = update.effective_user.username
+    message = ( "🚨 Someone has just made a report! 🚨\n\n"
+                f"_Reporter: @{user_handle}_\n\n"
+                f"_Animal: {animal}_\n\n{injured_status}" # will be this "_Injured: Yes_\n\n" if active
+                f"_Description: {description}_\n\n")
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    try:
+        if photo_path != None:
+            help_message = await context.bot.send_photo(
+                chat_id=GROUP_ID,
+                photo=photo_path,
+                caption=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+
+        else:
+            help_message = await context.bot.send_message(
+                chat_id=GROUP_ID,
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup
+            )
+    except Exception as e:
+        print("An exception occured when sending report ",e)
+
+    # Message sent to the User Below
+
+    original_message = context.user_data['original_message']
+
+    keyboard = [
+        [InlineKeyboardButton("Back to Main Menu", callback_data=f"start")]
+    ]
+
+    message = ( "🚨 The Report has been sent! 🚨\n\n"
+                "_Please give our experts between 15 minutes and an hour to get back to you ⏰. Your patience is greatly appreciated 👍_\n\n"
+                "")
+  
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    start_message = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message,
+        parse_mode="Markdown",
+        reply_markup=reply_markup
+    )
+
+    context.user_data['original_message'] = start_message   
+
+    await original_message.delete()
+
+    return REPORT_FINAL
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
-    try:
-        if context.user_data['unknown_message'] != None:
-            unknown_message = context.user_data['unknown_message']
-            await unknown_message.delete()
-    except Exception as e:
-        print("unknown message is not set")
+    # try:
+    #     if context.user_data['unknown_message'] != None:
+    #         unknown_message = context.user_data['unknown_message']
+    #         await unknown_message.delete()
+    # except Exception as e:
+    #     print("unknown message is not set")
 
     try:
-        if context.user_data['start_message'] != None:
-            start_message = context.user_data['start_message']
+        if context.user_data['original_message'] != None:
+            start_message = context.user_data['original_message']
             await start_message.delete()
     except Exception as e:
         print("original start message is not set")
@@ -341,12 +598,19 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print("animal message is not set")
 
+    # Create the inline keyboard
+    keyboard = [
+        [InlineKeyboardButton("Back to Main Menu", callback_data="start"),]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     unknown_message = await context.bot.send_message(
-    chat_id=update.effective_chat.id,
-    text="Sorry did not understand please use or press the /start command again" 
+        chat_id=update.effective_chat.id,
+        text="Sorry did not understand or something went wrong, please use the button below to return to the main menu",
+        reply_markup=reply_markup
         )
     
-    context.user_data['unknown_message'] = unknown_message
+    context.user_data['original_message'] = unknown_message
 
     # code below deletes users message to the bot
     message = update.message
@@ -355,7 +619,8 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id = message.message_id
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
-    return ConversationHandler.END
+    # return ConversationHandler.END
+    return ROUTE
 
 if __name__ == '__main__':
     application = ApplicationBuilder().token(TELE_TOKEN).build()
@@ -364,16 +629,41 @@ if __name__ == '__main__':
         entry_points=[
             CommandHandler('start', start)
         ],
-        fallbacks=[MessageHandler(filters.TEXT, unknown)],
+        fallbacks=[
+            MessageHandler(filters.TEXT, unknown),
+            MessageHandler(filters.PHOTO, unknown)],
+            # I may also want to add a filters for stickers, because the message.update can send stickers
         states = {
             ROUTE: {                
                 CommandHandler('start', start),
                 CallbackQueryHandler(start, pattern="^start$"),
-                CallbackQueryHandler(view_otter, pattern="^view_otter$"),
-                CallbackQueryHandler(view_boar, pattern="^view_boar$"),
-                CallbackQueryHandler(view_snake, pattern="^view_snake$"),
-                CallbackQueryHandler(view_monkey, pattern="^view_monkey$"),
+                CallbackQueryHandler(view_animal, pattern="^view_animal_(.*)$"),
+                CallbackQueryHandler(view_bird, pattern="^view_bird$"),
+                CallbackQueryHandler(make_report, pattern="^make_report_(.*)$"),
             },
+            REPORT: {
+                CallbackQueryHandler(start, pattern="^start$"),
+                CallbackQueryHandler(receive_photo, pattern="^receive_photo$"),
+                CallbackQueryHandler(process_image, pattern="^process_image$"),
+                CallbackQueryHandler(view_animal, pattern="^view_animal_(.*)$"),
+                CallbackQueryHandler(view_bird, pattern="^view_bird$"),
+                CallbackQueryHandler(make_report, pattern="^make_report_(.*)$"),
+                MessageHandler(filters.TEXT, process_description),
+            },
+            REPORT_PHOTO :{
+                CallbackQueryHandler(start, pattern="^start$"),
+                CallbackQueryHandler(receive_photo, pattern="^receive_photo$"),
+                CallbackQueryHandler(process_description, pattern="^process_description$"), # when returning to process description from receive_photo
+                MessageHandler(filters.PHOTO, process_image),
+                CallbackQueryHandler(finalise_report, pattern="^finalise_report$"),
+            },
+            REPORT_FINAL :{
+                CallbackQueryHandler(start, pattern="^start$"),
+                CallbackQueryHandler(receive_photo, pattern="^receive_photo$"),
+                CallbackQueryHandler(process_image, pattern="^process_image$"),
+                CallbackQueryHandler(finalise_report, pattern="^finalise_report$"),
+                CallbackQueryHandler(send_report, pattern="^send_report$"),
+            }
             })
 
     application.add_handler(conversation_handler)
