@@ -35,8 +35,8 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Monitor Lizard 🦎", callback_data="view_board_monitor"),InlineKeyboardButton("Otter 🦦", callback_data="view_board_otter")],
         [InlineKeyboardButton("Wild Boar 🐗", callback_data="view_board_boar"),InlineKeyboardButton("Snake 🐍", callback_data="view_board_snake")],
-        [InlineKeyboardButton("Bird 🐤", callback_data="view_bird"),InlineKeyboardButton("Others 🦘", callback_data="make_report_others")],
-        # [InlineKeyboardButton("Others 🦘", callback_data="make_report_others")],
+        [InlineKeyboardButton("Bird 🐤", callback_data="view_bird"),InlineKeyboardButton("Monkey 🐒", callback_data="view_board_monkey")],
+        [InlineKeyboardButton("Others 🦘", callback_data="make_report_others")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -238,10 +238,10 @@ async def view_animal(update, context: ContextTypes.DEFAULT_TYPE):
     if animal == "monkey":
         message = (
             "Below are some useful FAQs that could help!\n\n"
-            "*What do I do when I encounter a macaque?*\n"
-            "_Keep your distance and avoid direct eye contact as you pass by! Maintain a neutral expression as smiling at macaques is seen as a threatening gesture. _\n\n"
-            "*What can I do to keep macaques from venturing into urban areas?*\n"
-            "_Dispose of your trash appropriately and avoid feeding the macaques. Macaques have plenty of food in their forest habitats which include fruits and even small animals like lizards!_\n\n"
+            "*Keeping Monkeys out of your home*\n"
+            "_Keep food out of sight from open windows or doors, keeping them locked and secure. A mesh or grill can be installed to keep them out of your home. Manage your garbage by securing bins with cords to reduce access._\n\n"
+            "*Encountering a monkey in the wild*\n"
+            "_Remain calm and quiet. Do not make eye-contact or bare your teeth. Break away slowly backing up, do not turn away and run. Keep all plastic bags and containers in your backpack, as they associate it with food. Never try to hit the monkey._\n\n"
             "If you need more assistance please press back"
         )
 
