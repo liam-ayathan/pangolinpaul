@@ -40,12 +40,20 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    message = ("🎉 Hey there! Pangolin Paul here 👋\n\n"
+    message = ("👋 Hey there! Pangolin Paul here \n\n"
                "I'm happy to help you if you need any Wildlife Assistance!\n\n"
                "Please select one of the relevant options below\n\n"
                "🚨 _For extremely urgent help please call __NParks’ Animal Response Centre (1800-476-1600)__ or __ACRES (9783-7782)___ 🚨")
     
-    if update.callback_query:
+    try:
+        if context.user_data['report_message'] != None:
+            context.user_data['report_message'] = "Initialized"
+        else:
+            context.user_data['report_message'] = None
+    except Exception as e: #report message does not even exist
+        context.user_data['report_message'] = None
+    
+    if update.callback_query and context.user_data['report_message'] == None: # I want to keep the report message, if its not None means that the report message and the original message may reference the same thing - edge case
         try: # for some reason if there is a callback, need to investigate this further - I shouldn't need this try block - Yes I do from view animal
             query = update.callback_query
             await query.answer()
@@ -56,6 +64,7 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
           print(e)
+          context.user_data['report_message'] = None
           if context.user_data['original_message'] != None:
               original_message = context.user_data['original_message']
           start_message = await context.bot.send_message(
@@ -70,7 +79,7 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
           except Exception as e:
               print(e)
     else: # if we are editing the previous message in the if statement, we won't delete the start message, otherwise we will edit it as seen here
-
+        context.user_data['report_message'] = None # there is a report message, so I am settint it to None such that we can update.query now, since we are setting a new original message
         try:
             if context.user_data['original_message'] != None:
                 original_message = context.user_data['original_message']
@@ -665,18 +674,18 @@ async def send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     animal = context.user_data['animal']
     injured_status = context.user_data['injured']
 
-    user_id = update.effective_user.id
+    user_id = update.effective_user.id # same as update.effective_chat.id
     user_handle = update.effective_user.username
 
     keyboard = [
-        [InlineKeyboardButton("Respond Now!", url=f"tg://user?id={user_id}")]
+        [InlineKeyboardButton("Respond Now!", url=f"tg://user?id={user_id}"),InlineKeyboardButton("Ping User!", callback_data=f"ping_user_{update.effective_chat.id}")]
     ]
 
     if animal == "monitor":
         animal = "monitor lizard" #extend the name
 
     user_handle = update.effective_user.username
-    message = ( "🚨 Someone has just made a report! 🚨\n\n"
+    message = ( "🚨 Someone has just made a report!\n\n"
                 f"_Reporter: @{user_handle}_\n\n"
                 f"_Animal: {animal}_\n\n{injured_status}" # will be this "_Injured: Yes_\n\n" if active
                 f"_Description: {description}_\n\n")
@@ -711,7 +720,7 @@ async def send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Back to Main Menu", callback_data=f"start")]
     ]
 
-    message = ( "🚨 The Report has been sent! 🚨\n\n"
+    message = ( "🚨 The Report has been sent!\n\n"
                 f"_Reporter: @{user_handle}_\n\n"
                 f"_Animal: {animal}_\n\n{injured_status}" # will be this "_Injured: Yes_\n\n" if active
                 f"_Description: {description}_\n\n"
@@ -741,6 +750,20 @@ async def send_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await original_message.delete()
 
     return REPORT_FINAL
+
+async def ping_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_handle = update.effective_user.username # the wildlife expert's user_id
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.data.split("_")[-1] # basically it will be called as ping_user_{user_id} - this is the reporter's user_id for example if @user_name made the report
+    message = ( "✅ Your report is being accessed!\n\n"
+                f"Our wildlife expert @{user_handle} will be getting back to you shortly\n\n"
+                "")
+    await context.bot.send_message(
+                chat_id=chat_id,
+                text=message,
+                parse_mode="Markdown",
+            )
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
@@ -787,7 +810,8 @@ if __name__ == '__main__':
 
     conversation_handler = ConversationHandler(
         entry_points=[
-            CommandHandler('start', start)
+            CommandHandler('start', start),
+            CallbackQueryHandler(ping_user, pattern="^ping_user_(.*)$"),
         ],
         fallbacks=[
             # MessageHandler('start', start),
@@ -828,6 +852,7 @@ if __name__ == '__main__':
                 CallbackQueryHandler(process_description, pattern="^process_description$"),
                 CallbackQueryHandler(finalise_report, pattern="^finalise_report$"),
                 CallbackQueryHandler(send_report, pattern="^send_report$"),
+                CallbackQueryHandler(ping_user, pattern="^ping_user_(.*)$"),
             }
             })
 
